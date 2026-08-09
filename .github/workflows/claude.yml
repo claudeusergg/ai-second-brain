@@ -1,0 +1,41 @@
+name: Claude Worker
+
+# The queue: every GitHub Issue is a task.
+# Open an issue from the GitHub mobile app -> Claude picks it up in the cloud -> comments the result.
+# Your computer can be off. This runs entirely on GitHub's runners.
+
+on:
+  issues:
+    types: [opened, assigned]
+  issue_comment:
+    types: [created]
+
+jobs:
+  work:
+    # Skip issues/comments that don't ask for Claude, so we don't burn runner minutes.
+    if: |
+      contains(github.event.issue.body, '@claude') ||
+      contains(github.event.issue.title, '@claude') ||
+      contains(github.event.comment.body, '@claude')
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    permissions:
+      contents: write
+      issues: write
+      pull-requests: write
+      id-token: write
+      actions: read
+
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 1
+
+      - uses: anthropics/claude-code-action@v1
+        with:
+          # Uses your Claude subscription, not pay-per-token API billing.
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          claude_args: |
+            --model claude-sonnet-5
+            --max-turns 30

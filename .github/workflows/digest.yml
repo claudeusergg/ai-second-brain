@@ -1,0 +1,44 @@
+name: Daily Digest
+
+# Once a day, Claude reviews what got done and what's still stuck, and files a summary issue.
+# Purely optional — delete this file if you don't want it.
+
+on:
+  schedule:
+    - cron: "0 6 * * *" # 06:00 UTC daily
+  workflow_dispatch: # lets you trigger it by hand from the Actions tab
+
+jobs:
+  digest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    permissions:
+      contents: write
+      issues: write
+      id-token: write
+
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 1
+
+      - uses: anthropics/claude-code-action@v1
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          prompt: |
+            Review this repository's task queue and write a short daily digest.
+
+            1. List issues closed in the last 24 hours (what got finished).
+            2. List open issues older than 3 days (what is stuck, and your guess at why).
+            3. Flag any open issue that looks ambiguous or is waiting on an answer from Karolis.
+
+            Then open a NEW issue titled "Digest — <today's date>" containing that summary.
+            Label it `digest`. Keep it under 200 words. Do not tag @claude anywhere in it,
+            or you will trigger yourself in a loop.
+
+            If there is no activity at all to report, do nothing and post no issue.
+          claude_args: |
+            --model claude-sonnet-5
+            --max-turns 15
+            --allowedTools "mcp__github__list_issues,mcp__github__get_issue,mcp__github__create_issue,mcp__github__search_issues"
